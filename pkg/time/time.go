@@ -1,48 +1,38 @@
 package t
 
 import (
-	"database/sql/driver"
+	"strconv"
 	"time"
 )
 
-type ParkTime time.Time
+type Time int64
 
 const (
 	timeFormat = "2006-01-02 15:04:05"
 	zone       = "Asia/Shanghai"
 )
 
-func (t *ParkTime) Scan(v interface{}) error {
-	value, ok := v.(int64)
+//Scan 数据库->应用程序自定义时间类型转换
+func (r *Time) Scan(v interface{}) error {
+	vv, ok := v.(int64)
 	if ok {
-		*t = ParkTime(time.Unix(value, 0))
+		*r = Time(vv)
 	}
 	return nil
 }
 
-func (t ParkTime) MarshalJSON() ([]byte, error) {
+//UnmarshalJSON 字符串JSON->对象自定义时间类型转换
+func (r *Time) UnmarshalJSON(bytes []byte) error {
+	val, _ := strconv.ParseInt(string(bytes), 10, 64)
+	*r = Time(val)
+	return nil
+}
+
+//MarshalJSON 对象自定义时间类型 -> JSON对象转换
+func (r Time) MarshalJSON() ([]byte, error) {
 	b := make([]byte, 0, len(timeFormat)+2)
 	b = append(b, '"')
-	b = time.Time(t).AppendFormat(b, timeFormat)
+	b = time.Unix(int64(r), 0).AppendFormat(b, timeFormat)
 	b = append(b, '"')
 	return b, nil
-}
-
-func (t *ParkTime) UnmarshalJSON(data []byte) (err error) {
-	now, err := time.ParseInLocation(`"`+timeFormat+`"`, string(data), time.Local)
-	*t = ParkTime(now)
-	return
-}
-
-func (t ParkTime) String() string {
-	return time.Time(t).Format(timeFormat)
-}
-
-func (t ParkTime) Value() (driver.Value, error) {
-	var zeroTime time.Time
-	var ti = time.Time(t)
-	if ti.UnixNano() == zeroTime.UnixNano() {
-		return nil, nil
-	}
-	return ti, nil
 }
